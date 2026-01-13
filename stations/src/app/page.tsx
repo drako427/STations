@@ -1,0 +1,152 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Users, ShieldCheck, Clock, FileText, TrendingUp, TrendingDown, Loader2, AlertCircle } from "lucide-react";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, Cell
+} from "recharts";
+import { cn } from "@/lib/utils";
+import dynamic from "next/dynamic";
+
+const Charts = dynamic(() => import("@/components/dashboard/Charts"), { ssr: false });
+
+export default function Dashboard() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<{
+    station: any,
+    stats: any[],
+    caseData: any[],
+    categoryData: any[]
+  }>({
+    station: null,
+    stats: [],
+    caseData: [],
+    categoryData: []
+  });
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        console.log('Fetching dashboard data...');
+        const response = await fetch('http://localhost:5000/api/dashboard', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        console.log('Response status:', response.status);
+        
+        const responseData = await response.json().catch(() => ({}));
+        
+        if (!response.ok) {
+          console.error('Dashboard fetch error:', {
+            status: response.status,
+            statusText: response.statusText,
+            response: responseData
+          });
+          throw new Error(responseData.error || 'Failed to fetch dashboard data');
+        }
+
+        console.log('Dashboard data received:', responseData);
+        setData(responseData);
+        setError(null);
+      } catch (err: any) {
+        console.error('Dashboard fetch error:', err);
+        setError(err.message || 'Failed to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="h-[80vh] flex flex-col items-center justify-center gap-4 text-muted animate-in">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-sm font-medium animate-pulse">Initializing Command Center...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-[80vh] flex flex-col items-center justify-center gap-4 text-rose-400 animate-in">
+        <AlertCircle className="h-12 w-12" />
+        <p className="text-lg font-bold uppercase tracking-widest">Digital Link Failure</p>
+        <p className="text-sm text-muted max-w-md text-center">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 px-6 py-2 bg-rose-500/10 border border-rose-500/20 rounded-lg text-xs font-bold hover:bg-rose-500/20 transition-all"
+        >
+          RETRY UPLINK
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 animate-in">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-white line-clamp-1">
+            {data.station ? `${data.station.station_name} Dashboard` : 'Command Center'}
+          </h1>
+          <p className="text-muted mt-1">
+            {data.station ? `Station Code: ${data.station.station_code} | ${data.station.location || 'Location pending'}` : 'Real-time investigative overview and metrics.'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button className="px-4 py-2 bg-white/5 border border-border rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">
+            Export JSON
+          </button>
+          <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 leading-tight">
+            New Case
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {data.stats.map((stat: any) => {
+          const Icon = stat.name === "Total Suspects" ? Users :
+            stat.name === "Active Cases" ? FileText :
+              stat.name === "Closed (MTD)" ? ShieldCheck : Clock;
+
+          return (
+            <div key={stat.name} className="glass-card p-6 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+                  <Icon className="h-6 w-6 text-primary" />
+                </div>
+                <div className={cn(
+                  "flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full",
+                  stat.trend === "up" ? "text-emerald-400 bg-emerald-400/10" : "text-rose-400 bg-rose-400/10"
+                )}>
+                  {stat.trend === "up" ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {stat.change}
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted">{stat.name}</p>
+                <h3 className="text-2xl font-bold tracking-tight text-white mt-1">{stat.value}</h3>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Charts caseData={data.caseData} categoryData={data.categoryData} />
+      </div>
+    </div>
+  );
+}

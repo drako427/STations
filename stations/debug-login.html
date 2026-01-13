@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Station Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: white; }
+        .container { max-width: 500px; margin: 0 auto; }
+        input { width: 100%; padding: 10px; margin: 10px 0; background: #333; border: 1px solid #555; color: white; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin: 20px 0; padding: 10px; background: #333; border-radius: 5px; }
+        .error { background: #dc3545; }
+        .success { background: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🔓 Station Login Debug</h2>
+        <p>Test station login with access codes:</p>
+        <ul>
+            <li>Main Station: DEMO001</li>
+            <li>wellingara station: FHIS1RP</li>
+            <li>Banjul station: RCY4U0J</li>
+        </ul>
+        
+        <input type="text" id="accessCode" placeholder="Enter access code (e.g., FHIS1RP)">
+        <button onclick="testLogin()">Test Login</button>
+        
+        <div id="result" class="result"></div>
+        
+        <h3>🔍 Check Current Storage</h3>
+        <button onclick="checkStorage()">Check localStorage</button>
+        <div id="storage" class="result"></div>
+    </div>
+
+    <script>
+        async function testLogin() {
+            const accessCode = document.getElementById('accessCode').value.toUpperCase();
+            const resultDiv = document.getElementById('result');
+            
+            resultDiv.innerHTML = '<p>🔄 Testing login...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/station-login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ access_code: accessCode })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Store token and user info
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Login Successful!</h4>
+                            <p><strong>Token:</strong> ${data.token.substring(0, 50)}...</p>
+                            <p><strong>User:</strong> ${data.user.station_name}</p>
+                            <p><strong>Station ID:</strong> ${data.user.station_id}</p>
+                            <p><strong>Role:</strong> ${data.user.role}</p>
+                            <p>✅ Token and user data stored in localStorage</p>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Login Failed</h4>
+                            <p><strong>Error:</strong> ${data.error}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Network Error</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function checkStorage() {
+            const storageDiv = document.getElementById('storage');
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            storageDiv.innerHTML = `
+                <h4>📦 localStorage Contents:</h4>
+                <p><strong>Token:</strong> ${token ? token.substring(0, 50) + '...' : 'NOT FOUND'}</p>
+                <p><strong>User:</strong> ${user ? JSON.stringify(JSON.parse(user), null, 2) : 'NOT FOUND'}</p>
+            `;
+        }
+        
+        // Check storage on load
+        checkStorage();
+    </script>
+</body>
+</html>
