@@ -24,6 +24,26 @@ router.get('/suspects', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/suspects/station/:station_id
+ * Retrieve all suspects for a specific station
+ */
+router.get('/station/:station_id', authenticateToken, async (req, res) => {
+    const { station_id } = req.params;
+    
+    try {
+        console.log(`🔍 Fetching suspects for station_id: ${station_id}, requested by user: ${req.user.user_id}`);
+        const [rows] = await pool.query(
+            'SELECT * FROM suspects WHERE station_id = ? ORDER BY created_at DESC',
+            [station_id]
+        );
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error('❌ Error fetching station suspects:', error);
+        res.status(500).json({ error: 'Failed to fetch station suspects' });
+    }
+});
+
+/**
  * POST /api/suspects
  * Register a suspect for the authenticated user's station
  */

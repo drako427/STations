@@ -47,7 +47,6 @@ export default function DPODashboard() {
         { name: "Total Jurisdictions", value: data?.totalStations || "42", icon: Building2 },
         { name: "Active Stations", value: data?.activeStations || "38", icon: Activity },
         { name: "National Agents", value: data?.totalAgents || "1,248", icon: Users },
-        { name: "National Suspect DB", value: data?.nationalSuspects || "15,802", icon: ShieldCheck },
         { name: "Global Alerts", value: data?.globalAlerts || "3", icon: Siren, variant: "urgent" },
     ];
 
@@ -99,7 +98,11 @@ export default function DPODashboard() {
             {/* National Stats Grid */}
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
                 {nationalStats.map((stat) => (
-                    <div key={stat.name} className={`glass-card p-6 border-l-4 ${stat.variant === "urgent" ? "border-l-rose-400" : "border-l-amber-400/50"}`}>
+                    <div 
+                        key={stat.name} 
+                        className={`glass-card p-6 border-l-4 ${stat.variant === "urgent" ? "border-l-rose-400" : "border-l-amber-400/50"} ${stat.onClick ? 'cursor-pointer hover:border-amber-400/70 transition-all' : ''}`}
+                        onClick={stat.onClick}
+                    >
                         <div className="flex items-center justify-between mb-4">
                             <div className={`p-2 rounded-lg ${stat.variant === "urgent" ? "bg-rose-500/10 border border-rose-500/20" : "bg-amber-500/10 border border-amber-500/20"}`}>
                                 <stat.icon className={`h-6 w-6 ${stat.variant === "urgent" ? "text-rose-400" : "text-amber-400"}`} />

@@ -15,8 +15,6 @@ const dpoNavigation = {
         { name: "Active Stations", href: "/dpo-dashboard/active-stations", icon: Activity },
     ],
     federal: [
-        { name: "National Suspects", href: "/national/suspects", icon: Users },
-        { name: "National Cases", href: "/national/cases", icon: FileBarChart },
         { name: "Global Alerts", href: "/dpo-dashboard/alerts", icon: Siren },
     ],
     system: [

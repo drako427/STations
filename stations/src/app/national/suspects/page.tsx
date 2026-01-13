@@ -1,9 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { GenericInvestigationPage } from "@/components/shared/GenericInvestigationPage";
-import { Globe, ShieldAlert, Scale, X, Search, Filter, MoreVertical, Eye, Loader2 } from "lucide-react";
+import { ShieldAlert, Scale, X, Search, Loader2, Eye, MoreVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { StationContainer } from "@/components/shared/StationContainer";
+
+interface Station {
+    station_id: number;
+    station_name: string;
+    station_code: string;
+    location?: string;
+    sector?: string;
+    jurisdiction_type?: string;
+}
 
 interface Suspect {
     suspect_id: number;
@@ -23,11 +34,19 @@ interface Suspect {
 }
 
 export default function NationalSuspectsPage() {
+    const searchParams = useSearchParams();
+    const isFromDPO = searchParams.get('from') === 'dpo';
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [suspectList, setSuspectList] = useState<Suspect[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
+    const [stations, setStations] = useState<Station[]>([]);
+    const [myStation, setMyStation] = useState<Station | null>(null);
+    const [otherStations, setOtherStations] = useState<Station[]>([]);
+    const [selectedStation, setSelectedStation] = useState<{id: number, name: string} | null>(null);
+    const [stationsLoading, setStationsLoading] = useState(true);
+    const [stationSuspectCounts, setStationSuspectCounts] = useState<{[key: number]: number}>({});
 
     const getRiskColor = (risk: string) => {
         switch (risk) {
@@ -45,18 +64,127 @@ export default function NationalSuspectsPage() {
         }
     };
 
-    const fetchSuspects = async () => {
+    // Fetch all stations and separate my station from others
+    useEffect(() => {
+        const fetchStations = async () => {
+            // Only run on client side
+            if (typeof window === 'undefined') return;
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                setError('No authentication token found. Please login again.');
+                setStationsLoading(false);
+                return;
+            }
+
+            try {
+                // Decode token to get user's station_id
+                const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+                const userStationId = tokenPayload.station_id;
+
+                // Fetch all stations
+                const response = await fetch('http://localhost:5000/api/stations', {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch stations');
+                }
+
+                const allStations: Station[] = await response.json();
+                
+                // Separate my station from other stations
+                const myStationData = allStations.find(s => s.station_id === userStationId);
+                const otherStationsData = allStations.filter(s => s.station_id !== userStationId);
+                
+                setMyStation(myStationData || null);
+                setOtherStations(otherStationsData);
+                setStations(allStations);
+
+                // Fetch suspect counts for each station
+                await fetchSuspectCounts(allStations, token);
+
+            } catch (err: any) {
+                console.error('Error fetching stations:', err);
+                setError(err.message || 'Failed to load stations');
+            } finally {
+                setStationsLoading(false);
+            }
+        };
+
+        fetchStations();
+    }, []);
+
+    // Fetch suspect counts for all stations
+    const fetchSuspectCounts = async (stationsList: Station[], token: string) => {
+        // Only run on client side
+        if (typeof window === 'undefined') return;
+        
+        const counts: {[key: number]: number} = {};
+        
+        for (const station of stationsList) {
+            try {
+                const response = await fetch(`http://localhost:5000/api/suspects/station/${station.station_id}`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const suspects = await response.json();
+                    counts[station.station_id] = suspects.length;
+                } else {
+                    const errorText = await response.text();
+                    console.error(`❌ Error fetching suspect count for station ${station.station_id}:`, response.status, errorText);
+                    counts[station.station_id] = 0;
+                }
+            } catch (err) {
+                console.error(`❌ Error fetching suspect count for station ${station.station_id}:`, err);
+                counts[station.station_id] = 0;
+            }
+        }
+        
+        setStationSuspectCounts(counts);
+    };
+
+    const fetchSuspects = async (stationId: number) => {
+        // Only run on client side
+        if (typeof window === 'undefined') return;
+        
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch('http://localhost:5000/api/suspects/suspects', {
+            const token = localStorage.getItem('token');
+            console.log('🔍 National suspects - Checking token:', token ? 'exists' : 'missing');
+            
+            if (!token) {
+                setError('No authentication token found. Please login again.');
+                setLoading(false);
+                return;
+            }
+
+            const response = await fetch(`http://localhost:5000/api/suspects/station/${stationId}`, {
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 }
             });
 
+            console.log('📡 National suspects API response status:', response.status);
+
             if (!response.ok) {
-                throw new Error('Failed to fetch suspects');
+                const errorText = await response.text();
+                console.error('❌ National suspects API response:', response.status, errorText);
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch {
+                    errorData = { error: errorText };
+                }
+                throw new Error(errorData.error || `Failed to fetch suspects (${response.status})`);
             }
 
             const data = await response.json();
@@ -82,48 +210,100 @@ export default function NationalSuspectsPage() {
         }
     };
 
-    const openModal = () => {
+    const openModal = (stationId: number, stationName: string) => {
+        setSelectedStation({id: stationId, name: stationName});
         setIsModalOpen(true);
-        fetchSuspects();
+        fetchSuspects(stationId);
     };
+
+    if (stationsLoading) {
+        return (
+            <div className="h-[80vh] flex flex-col items-center justify-center gap-4 text-muted animate-in">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="text-sm font-medium animate-pulse">Loading stations network...</p>
+            </div>
+        );
+    }
+
+    if (error && !myStation) {
+        return (
+            <div className="h-[80vh] flex flex-col items-center justify-center gap-4 text-rose-400 animate-in">
+                <ShieldAlert className="h-12 w-12" />
+                <p className="text-lg font-bold uppercase tracking-widest">Station Network Error</p>
+                <p className="text-sm text-muted max-w-md text-center">{error}</p>
+                <button
+                    onClick={() => window.location.reload()}
+                    className="mt-4 px-6 py-2 bg-rose-500/10 border border-rose-500/20 rounded-lg text-xs font-bold hover:bg-rose-500/20 transition-all"
+                >
+                    RETRY CONNECTION
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8 animate-in">
-            {/* Single horizontal station container */}
-            <div className="glass-card p-6 border-border/50 hover:border-primary/50 transition-all group">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="flex items-center gap-6">
-                        <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center shadow-inner">
-                            <ShieldAlert className="h-8 w-8 text-primary animate-pulse" />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2 text-primary mb-1">
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Active Federal Station</span>
-                                <div className="h-1 w-1 rounded-full bg-primary" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Sector 1</span>
-                            </div>
-                            <h3 className="text-2xl font-bold text-white tracking-tight">Central Intelligence Hub</h3>
-                            <p className="text-sm text-muted mt-1">
-                                Primary coordination center for cross-jurisdictional suspect tracking and federal watchlists.
-                            </p>
+            {/* DPO Header - Only show when accessed from DPO dashboard */}
+            {isFromDPO && (
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight text-white line-clamp-1">Stations Suspects</h1>
+                        <p className="text-muted mt-1">Department of Police Operations - Station Overview</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <div className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full flex items-center gap-2">
+                            <div className="h-2 w-2 bg-amber-400 rounded-full animate-pulse" />
+                            <span className="text-[10px] font-bold text-amber-400 tracking-widest uppercase">DPO Access</span>
                         </div>
                     </div>
-                    <button 
-                        onClick={openModal}
-                        className="px-8 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 whitespace-nowrap min-w-[180px]"
-                    >
-                        View Suspects
-                    </button>
                 </div>
-            </div>
+            )}
 
-            {/* Horizontal divider and footer text */}
-            <div className="pt-12">
-                <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent" />
-                <p className="text-center text-xs font-bold uppercase tracking-[0.3em] text-muted mt-6 animate-pulse">
-                    View other station suspect
-                </p>
-            </div>
+            {/* Regular National Suspects Header - Only show when NOT accessed from DPO */}
+            {!isFromDPO && (
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight text-white line-clamp-1">National Suspects</h1>
+                        <p className="text-muted mt-1">Cross-jurisdictional suspect tracking and federal watchlists.</p>
+                    </div>
+                </div>
+            )}
+
+            {/* My Station Container */}
+            {myStation && (
+                <StationContainer
+                    station={myStation}
+                    isMyStation={true}
+                    onViewSuspects={openModal}
+                    suspectCount={stationSuspectCounts[myStation.station_id] || 0}
+                />
+            )}
+
+            {/* Other Stations Section */}
+            {otherStations.length > 0 && (
+                <>
+                    {/* Horizontal divider and section header */}
+                    <div className="pt-12">
+                        <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent" />
+                        <p className="text-center text-xs font-bold uppercase tracking-[0.3em] text-muted mt-6 animate-pulse">
+                            View other stations suspects
+                        </p>
+                    </div>
+
+                    {/* Other Stations Grid */}
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        {otherStations.map((station) => (
+                            <StationContainer
+                                key={station.station_id}
+                                station={station}
+                                isMyStation={false}
+                                onViewSuspects={openModal}
+                                suspectCount={stationSuspectCounts[station.station_id] || 0}
+                            />
+                        ))}
+                    </div>
+                </>
+            )}
 
             {/* Suspects Modal */}
             {isModalOpen && (
@@ -136,8 +316,12 @@ export default function NationalSuspectsPage() {
                                     <ShieldAlert className="h-5 w-5 text-primary" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-white leading-tight">National Suspect Database</h2>
-                                    <p className="text-xs text-muted leading-tight">Federal watchlist and cross-jurisdictional tracking.</p>
+                                    <h2 className="text-xl font-bold text-white leading-tight">
+                                        {selectedStation?.name || 'Station'} Suspects
+                                    </h2>
+                                    <p className="text-xs text-muted leading-tight">
+                                        Station ID: {selectedStation?.id || 'Unknown'} • Federal watchlist and cross-jurisdictional tracking.
+                                    </p>
                                 </div>
                             </div>
                             <button

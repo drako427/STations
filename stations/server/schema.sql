@@ -88,3 +88,26 @@ CREATE TABLE IF NOT EXISTS case_suspects (
     FOREIGN KEY (suspect_id) REFERENCES suspects(suspect_id) ON DELETE CASCADE,
     FOREIGN KEY (station_id) REFERENCES stations(station_id) ON DELETE CASCADE
 );
+
+-- 6. Properties Table
+CREATE TABLE IF NOT EXISTS properties (
+    property_id INT AUTO_INCREMENT PRIMARY KEY,
+    station_id INT NOT NULL,
+    registered_by INT,
+    property_code VARCHAR(50) UNIQUE,
+    item_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    category VARCHAR(100),
+    estimated_value DECIMAL(10,2),
+    status ENUM('missing', 'recovered', 'claimed', 'disposed') DEFAULT 'missing',
+    location_found VARCHAR(255),
+    date_reported DATE DEFAULT (CURRENT_DATE),
+    date_found DATE,
+    owner_name VARCHAR(100),
+    owner_contact VARCHAR(100),
+    image_url VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (station_id) REFERENCES stations(station_id) ON DELETE CASCADE,
+    FOREIGN KEY (registered_by) REFERENCES users(user_id) ON DELETE SET NULL
+);

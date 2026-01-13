@@ -28,8 +28,18 @@ export default function Dashboard() {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
+      // Only run on client side
+      if (typeof window === 'undefined') return;
+      
       try {
         setLoading(true);
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.error('No token found, redirecting to login...');
+          window.location.href = '/login';
+          return;
+        }
         
         console.log('Fetching dashboard data...');
         const response = await fetch('http://localhost:5000/api/dashboard', {
@@ -37,7 +47,7 @@ export default function Dashboard() {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${token}`
           }
         });
 
@@ -51,6 +61,15 @@ export default function Dashboard() {
             statusText: response.statusText,
             response: responseData
           });
+          
+          // Handle expired/invalid token
+          if (response.status === 401 || responseData?.error?.includes('token')) {
+            console.error('Token expired or invalid, clearing and redirecting...');
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+            return;
+          }
+          
           throw new Error(responseData.error || 'Failed to fetch dashboard data');
         }
 

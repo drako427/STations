@@ -33,17 +33,60 @@ export function RegisterPropertyForm({ isOpen, onClose, onSuccess }: RegisterPro
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        onSuccess({ ...formData, image: imagePreview });
-        onClose();
-        setFormData({
-            name: "",
-            description: "",
-            value: "",
-            category: "Personal Electronics",
-        });
-        setImagePreview(null);
+        
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('No token found');
+                return;
+            }
+
+            // Create FormData for file upload
+            const submitData = new FormData();
+            submitData.append('item_name', formData.name);
+            submitData.append('description', formData.description);
+            submitData.append('category', formData.category);
+            submitData.append('estimated_value', formData.value);
+            
+            // Add image if present
+            if (imagePreview) {
+                // Convert base64 back to blob for upload
+                const response = await fetch(imagePreview);
+                const blob = await response.blob();
+                submitData.append('image', blob, 'property.jpg');
+            }
+
+            const response = await fetch('http://localhost:5000/api/properties', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: submitData
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Failed to register property');
+            }
+
+            const result = await response.json();
+            console.log('Property registered successfully:', result);
+            
+            onSuccess({ ...formData, image: imagePreview });
+            onClose();
+            setFormData({
+                name: "",
+                description: "",
+                value: "",
+                category: "Personal Electronics",
+            });
+            setImagePreview(null);
+        } catch (error: any) {
+            console.error('Error registering property:', error);
+            // You could add error state handling here
+        }
     };
 
     return (

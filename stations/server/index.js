@@ -18,6 +18,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const authRoutes = require('./routes/auth');
 const nakedLoginRoutes = require('./routes/naked-login');
 const stationLoginRoutes = require('./routes/station-login');
+const propertyRoutes = require('./routes/properties');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -37,6 +38,7 @@ app.use('/api/station-login', stationLoginRoutes);
 app.use('/api/stations', stationRoutes);
 app.use('/api/suspects', suspectRoutes);
 app.use('/api/cases', caseRoutes);
+app.use('/api/properties', propertyRoutes);
 app.use('/api', dashboardRoutes); // This will handle /api/dashboard/*
 
 // Test route to verify API is working
