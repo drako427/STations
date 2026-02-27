@@ -3,6 +3,12 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
 
+// Test route
+router.get('/test', (req, res) => {
+    console.log('🧪 Test route hit!');
+    res.json({ message: 'Naked login router is working' });
+});
+
 /**
  * POST /api/auth/naked-login
  * Temporary development login system
@@ -12,6 +18,7 @@ const { pool } = require('../config/database');
  * - Forces role = station
  */
 router.post('/naked-login', async (req, res) => {
+    console.log('🔓 Naked login route hit!');
     const { username, password, role } = req.body;
 
     try {
@@ -29,8 +36,8 @@ router.post('/naked-login', async (req, res) => {
             
             // Auto-create user with station_id = 1
             const [result] = await pool.query(
-                'INSERT INTO users (station_id, username, email, password_hash, full_name, badge_number, rank, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                [1, username, `${username}@stations.temp`, 'temp_hash', username.toUpperCase(), `AUTO-${username}`, 'Auto-Created', 'station']
+                'INSERT INTO users (station_id, username, email, password_hash, full_name, badge_number, user_rank, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [1, username, `${username}@stations.temp`, 'temp_hash', username.toUpperCase(), `AUTO-${username}`, 'Auto-Created', 'officer']
             );
             
             // Get the newly created user

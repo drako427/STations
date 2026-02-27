@@ -14,6 +14,7 @@ export function RegisterSuspectForm({ isOpen, onClose, onSuccess }: RegisterSusp
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [formData, setFormData] = useState({
         name: "",
@@ -29,6 +30,7 @@ export function RegisterSuspectForm({ isOpen, onClose, onSuccess }: RegisterSusp
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            setSelectedFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setImagePreview(reader.result as string);
@@ -43,38 +45,54 @@ export function RegisterSuspectForm({ isOpen, onClose, onSuccess }: RegisterSusp
         setError("");
 
         try {
-            // Prepare data for API
-            const suspectData = {
-                full_name: formData.name,
-                date_of_birth: formData.dob || null,
-                crime_committed: formData.crime,
-                location_of_crime: formData.locationOfCrime,
-                place_of_arrest: formData.placeOfArrest,
-                date_of_arrest: formData.dateOfArrest,
-                nationality: null,
-                physical_description: `Arrested at: ${formData.placeOfArrest}, Crime location: ${formData.locationOfCrime}`,
-                risk_level: 'medium',
-                is_national: false
-            };
+            // Create FormData for file upload
+            const formDataToSend = new FormData();
+            
+            // Add form fields
+            formDataToSend.append('full_name', formData.name);
+            if (formData.dob) formDataToSend.append('date_of_birth', formData.dob);
+            formDataToSend.append('crime_committed', formData.crime);
+            formDataToSend.append('physical_description', `Arrested at: ${formData.placeOfArrest}, Crime location: ${formData.locationOfCrime}`);
+            formDataToSend.append('risk_level', 'medium');
+            formDataToSend.append('is_national', '0');
+            
+            // Add image file if selected
+            if (selectedFile) {
+                formDataToSend.append('image', selectedFile);
+            }
 
             const token = localStorage.getItem('token');
             console.log('🔍 RegisterSuspectForm - Checking token:', token ? 'exists' : 'missing');
+            console.log('📡 RegisterSuspectForm - Sending FormData with file:', selectedFile?.name);
+            console.log('📡 RegisterSuspectForm - FormData contents:');
+            for (let [key, value] of formDataToSend.entries()) {
+                console.log(`  ${key}:`, value instanceof File ? `File: ${value.name}` : value);
+            }
 
             if (!token) {
                 setError('No authentication token found. Please login again.');
                 return;
             }
 
-            const response = await fetch('http://localhost:5000/api/suspects/suspects', {
+            console.log('📡 RegisterSuspectForm - Making request to:', '/api/suspects');
+            
+            const response = await fetch('/api/suspects', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(suspectData)
+                body: formDataToSend
             });
 
             console.log('📡 RegisterSuspectForm API response status:', response.status);
+
+            // Check if response is actually JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('❌ Non-JSON response received:', text);
+                throw new Error('Server returned non-JSON response');
+            }
 
             const responseData = await response.json();
 
@@ -86,7 +104,7 @@ export function RegisterSuspectForm({ isOpen, onClose, onSuccess }: RegisterSusp
             // Call onSuccess with the new suspect data
             const newSuspect = {
                 ...formData,
-                image: imagePreview,
+                image: selectedFile ? `http://localhost:5000/uploads/suspect-${Date.now()}-${selectedFile.name}` : imagePreview,
                 suspect_id: responseData.suspect_id
             };
             onSuccess(newSuspect);
@@ -101,6 +119,7 @@ export function RegisterSuspectForm({ isOpen, onClose, onSuccess }: RegisterSusp
                 dateOfArrest: "",
             });
             setImagePreview(null);
+            setSelectedFile(null);
             onClose();
         } catch (err: any) {
             console.error('Registration error:', err);
@@ -191,9 +210,9 @@ export function RegisterSuspectForm({ isOpen, onClose, onSuccess }: RegisterSusp
                                 <Calendar className="h-3.5 w-3.5" /> Year of Birth (Optional)
                             </label>
                             <input
-                                type="text"
+                                type="date"
                                 placeholder="e.g. 1995"
-                                className="w-full bg-white/5 border border-border rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all placeholder:text-muted/50"
+                                className="w-full bg-white/5 border border-border rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-white [color-scheme:dark]"
                                 value={formData.dob}
                                 onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
                             />

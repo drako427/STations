@@ -12,6 +12,19 @@ const jwt = require('jsonwebtoken');
 router.get('/', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM stations ORDER BY station_name');
+        console.log('🔍 Stations query result:', rows);
+        console.log('📊 Number of stations returned:', rows.length);
+        
+        // Log each station to identify any non-station entries
+        rows.forEach((station, index) => {
+            console.log(`🏢 Station ${index + 1}:`, {
+                id: station.station_id,
+                name: station.station_name,
+                location: station.location,
+                access_code: station.access_code
+            });
+        });
+        
         res.status(200).json(rows);
     } catch (error) {
         console.error('❌ Error fetching stations:', error);

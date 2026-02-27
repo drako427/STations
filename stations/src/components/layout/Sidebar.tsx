@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
     LayoutDashboard, Users, Settings, LogOut, ShieldAlert,
-    Briefcase, Ghost, Package, Globe, UserCheck, ShieldQuestion
+    Briefcase, Package, Globe, UserCheck, ShieldQuestion, FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +14,7 @@ const navigation = {
         { name: "Dashboard", href: "/", icon: LayoutDashboard },
         { name: "My Suspect", href: "/suspects", icon: Users },
         { name: "Cases", href: "/cases", icon: Briefcase },
-        { name: "Unsolved cases", href: "/cases/unsolved", icon: Ghost },
+        { name: "Reports", href: "/reports", icon: FileText },
         { name: "Missing property", href: "/property/missing", icon: Package },
     ],
     national: [
@@ -36,9 +36,17 @@ export function Sidebar() {
         // Get station info from localStorage or fetch it
         const user = localStorage.getItem('user');
         if (user) {
-            const userData = JSON.parse(user);
-            if (userData.station_name) {
-                setStationName(userData.station_name);
+            try {
+                const userData = JSON.parse(user);
+                if (userData.station_name) {
+                    setStationName(userData.station_name);
+                }
+            } catch (error) {
+                console.error('❌ Error parsing user data:', error);
+                // Clear corrupted data
+                localStorage.removeItem('user');
+                localStorage.removeItem('token');
+                router.push('/login');
             }
         }
     }, []);

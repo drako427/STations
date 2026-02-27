@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
     LayoutDashboard, Building2, Activity, Settings, LogOut, ShieldCheck,
-    Globe, Users, FileBarChart, Siren, AlertTriangle
+    Users, FileBarChart, FileText, UserCheck, Scale
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -13,10 +13,11 @@ const dpoNavigation = {
         { name: "Dashboard", href: "/dpo-dashboard", icon: LayoutDashboard },
         { name: "Stations", href: "/dpo-dashboard/stations", icon: Building2 },
         { name: "Active Stations", href: "/dpo-dashboard/active-stations", icon: Activity },
+        { name: "Officers", href: "/dpo-dashboard/officers", icon: UserCheck },
+        { name: "Crimes", href: "/dpo-dashboard/crimes", icon: Scale },
+        { name: "Reports", href: "/dpo-dashboard/reports", icon: FileText },
     ],
-    federal: [
-        { name: "Global Alerts", href: "/dpo-dashboard/alerts", icon: Siren },
-    ],
+    federal: [],
     system: [
         { name: "Settings", href: "#", icon: Settings },
     ]
@@ -68,13 +69,6 @@ export function DpoSidebar() {
                     <h3 className="px-4 text-xs font-semibold text-muted uppercase tracking-wider mb-2">Command Center</h3>
                     <nav className="space-y-1">
                         {dpoNavigation.main.map((item) => <NavLink key={item.name} item={item} />)}
-                    </nav>
-                </div>
-
-                <div>
-                    <h3 className="px-4 text-xs font-semibold text-muted uppercase tracking-wider mb-2">Federal Database</h3>
-                    <nav className="space-y-1">
-                        {dpoNavigation.federal.map((item) => <NavLink key={item.name} item={item} />)}
                     </nav>
                 </div>
 

@@ -19,13 +19,15 @@ export function GenericInvestigationPage({ title, description, items, columns, r
                     <h1 className="text-3xl font-bold tracking-tight text-white line-clamp-1">{title}</h1>
                     <p className="text-muted mt-1">{description}</p>
                 </div>
-                <button
-                    onClick={onAddRecord}
-                    className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2 w-fit leading-tight"
-                >
-                    <Plus className="h-4 w-4" />
-                    {title.includes("Property") ? "Register Property" : "Add Record"}
-                </button>
+                {onAddRecord && (
+                    <button
+                        onClick={onAddRecord}
+                        className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2 w-fit leading-tight"
+                    >
+                        <Plus className="h-4 w-4" />
+                        {title.includes("Property") ? "Register Property" : "Add Record"}
+                    </button>
+                )}
             </div>
 
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">

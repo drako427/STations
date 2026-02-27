@@ -17,8 +17,15 @@ export function RegisterPropertyForm({ isOpen, onClose, onSuccess }: RegisterPro
         name: "",
         description: "",
         value: "",
-        category: "Personal Electronics",
+        category: "Other Stuff",
     });
+
+    const categories = [
+        { value: "ID Card", label: "ID Card" },
+        { value: "Car Keys", label: "Car Keys" },
+        { value: "Car", label: "Car" },
+        { value: "Other Stuff", label: "Other Stuff" }
+    ];
 
     if (!isOpen) return null;
 
@@ -49,6 +56,11 @@ export function RegisterPropertyForm({ isOpen, onClose, onSuccess }: RegisterPro
             submitData.append('description', formData.description);
             submitData.append('category', formData.category);
             submitData.append('estimated_value', formData.value);
+            submitData.append('status', 'missing');
+            submitData.append('location_found', 'Unknown');
+            submitData.append('date_found', new Date().toISOString().split('T')[0]);
+            submitData.append('owner_name', 'Unknown');
+            submitData.append('owner_contact', 'Unknown');
             
             // Add image if present
             if (imagePreview) {
@@ -58,7 +70,7 @@ export function RegisterPropertyForm({ isOpen, onClose, onSuccess }: RegisterPro
                 submitData.append('image', blob, 'property.jpg');
             }
 
-            const response = await fetch('http://localhost:5000/api/properties', {
+            const response = await fetch('/api/properties', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -66,9 +78,17 @@ export function RegisterPropertyForm({ isOpen, onClose, onSuccess }: RegisterPro
                 body: submitData
             });
 
+            console.log('📡 Properties API response status:', response.status);
+            console.log('📡 Properties API response headers:', Object.fromEntries(response.headers.entries()));
+
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || 'Failed to register property');
+                console.error('❌ Properties API error:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: errorData
+                });
+                throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
             }
 
             const result = await response.json();
@@ -80,7 +100,7 @@ export function RegisterPropertyForm({ isOpen, onClose, onSuccess }: RegisterPro
                 name: "",
                 description: "",
                 value: "",
-                category: "Personal Electronics",
+                category: "Other Stuff",
             });
             setImagePreview(null);
         } catch (error: any) {
@@ -162,7 +182,7 @@ export function RegisterPropertyForm({ isOpen, onClose, onSuccess }: RegisterPro
                             />
                         </div>
 
-                        {/* Estimated Value */}
+                        {/* Description */}
                         <div className="space-y-2">
                             <label className="text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-2">
                                 Item Description
@@ -172,6 +192,38 @@ export function RegisterPropertyForm({ isOpen, onClose, onSuccess }: RegisterPro
                                 className="w-full bg-white/5 border border-border rounded-xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all placeholder:text-muted/30 min-h-[100px] resize-none"
                                 value={formData.description}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            />
+                        </div>
+
+                        {/* Category */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-2">
+                                Category
+                            </label>
+                            <select
+                                value={formData.category}
+                                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                className="w-full bg-white/5 border border-border rounded-xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-white"
+                            >
+                                {categories.map((cat) => (
+                                    <option key={cat.value} value={cat.value} className="bg-surface">
+                                        {cat.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Estimated Value */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-2">
+                                Estimated Value ($)
+                            </label>
+                            <input
+                                type="number"
+                                placeholder="0.00"
+                                className="w-full bg-white/5 border border-border rounded-xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all placeholder:text-muted/30"
+                                value={formData.value}
+                                onChange={(e) => setFormData({ ...formData, value: e.target.value })}
                             />
                         </div>
                     </div>

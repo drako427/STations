@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Activity, Users, ShieldCheck, MapPin, Phone, Mail, Search, Filter, MoreVertical, Eye, AlertTriangle, X, Key } from "lucide-react";
+import { Building2, Activity, Users, ShieldCheck, MapPin, Phone, Mail, Search, Filter, MoreVertical, Eye, AlertTriangle, X, Key, Copy } from "lucide-react";
 
 interface Station {
     station_id: number;
@@ -35,6 +35,17 @@ export default function DPOStationsPage() {
     const [registerError, setRegisterError] = useState("");
     const [accessCode, setAccessCode] = useState("");
     const [showAccessCode, setShowAccessCode] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const copyToClipboard = async (text: string) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy:', err);
+        }
+    };
 
     const handleRegisterStation = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -42,7 +53,10 @@ export default function DPOStationsPage() {
         setRegisterError("");
 
         try {
-            const response = await fetch('http://localhost:5000/api/stations', {
+            // Get next station ID for proper code generation
+            const nextId = stations.length > 0 ? Math.max(...stations.map(s => s.station_id)) + 1 : 1;
+            
+            const response = await fetch('/api/stations', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -50,7 +64,7 @@ export default function DPOStationsPage() {
                 },
                 body: JSON.stringify({
                     name: registerForm.name,
-                    code: `STN-${Date.now()}`,
+                    code: `STN-${String(nextId).padStart(3, '0')}`,
                     location: "To be updated",
                     sector: "To be updated",
                     jurisdiction_type: "local",
@@ -77,7 +91,7 @@ export default function DPOStationsPage() {
             });
 
             // Refresh stations list
-            const fetchResponse = await fetch('http://localhost:5000/api/stations');
+            const fetchResponse = await fetch('/api/stations');
             const stationsData = await fetchResponse.json();
             const transformedStations: Station[] = stationsData.map((station: any) => ({
                 station_id: station.station_id,
@@ -108,7 +122,7 @@ export default function DPOStationsPage() {
             try {
                 setLoading(true);
                 // Fetch real stations from database
-                const response = await fetch('http://localhost:5000/api/stations', {
+                const response = await fetch('/api/stations', {
                     headers: {
                         'Content-Type': 'application/json',
                     }
@@ -415,114 +429,158 @@ export default function DPOStationsPage() {
 
             {/* Access Code Success Modal */}
             {showAccessCode && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-surface border border-border w-full max-w-md rounded-2xl shadow-2xl p-6">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-60 backdrop-blur-sm">
+                    <div className="bg-gray-800 border border-gray-700 w-full max-w-md rounded-2xl shadow-2xl p-6">
                         <div className="text-center space-y-6">
-                            <div className="h-16 w-16 rounded-xl bg-green-500/10 flex items-center justify-center mx-auto">
+                            <div className="h-16 w-16 rounded-xl bg-green-500 bg-opacity-10 flex items-center justify-center mx-auto">
                                 <ShieldCheck className="h-8 w-8 text-green-400" />
                             </div>
                             <div>
                                 <h3 className="text-xl font-bold text-white mb-2">Station Registered Successfully!</h3>
-                                <p className="text-sm text-muted mb-4">Share this access code with the station:</p>
-                                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
-                                    <div className="text-2xl font-mono font-bold text-amber-400 tracking-widest">
-                                        {accessCode}
+                                <p className="text-sm text-gray-400 mb-4">Share this access code with the station:</p>
+                                <div className="bg-white border border-gray-300 rounded-lg p-4 relative">
+                                    <div className="text-2xl font-mono font-bold text-black tracking-widest break-all">
+                                        {accessCode || 'No Code'}
                                     </div>
+                                    <button
+                                        onClick={() => copyToClipboard(accessCode)}
+                                        className="absolute top-2 right-2 p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors group"
+                                        title="Copy access code"
+                                    >
+                                        {copied ? (
+                                            <div className="flex items-center gap-1">
+                                                <div className="w-4 h-4 bg-green-500 rounded-sm flex items-center justify-center">
+                                                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <Copy className="h-4 w-4 text-gray-600 group-hover:text-gray-800" />
+                                        )}
+                                    </button>
                                 </div>
-                                <p className="text-xs text-muted mt-4">This code is required for station login</p>
+                                <p className="text-xs text-gray-400 mt-4">
+                                    {copied ? '✅ Copied to clipboard!' : 'This code is required for station login'}
+                                </p>
                             </div>
-                            <button
-                                onClick={() => setShowAccessCode(false)}
-                                className="w-full px-4 py-2 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition-all"
-                            >
-                                Got it
-                            </button>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => copyToClipboard(accessCode)}
+                                    className="flex-1 px-4 py-2 bg-gray-100 border border-gray-300 text-black font-bold rounded-lg hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+                                >
+                                    {copied ? (
+                                        <>
+                                            <div className="w-4 h-4 bg-green-500 rounded-sm flex items-center justify-center">
+                                                <div className="w-2 h-2 bg-white rounded-full"></div>
+                                            </div>
+                                            Copied!
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Copy className="h-4 w-4 text-gray-600" />
+                                            Copy Code
+                                        </>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => setShowAccessCode(false)}
+                                    className="flex-1 px-4 py-2 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition-all"
+                                >
+                                    Got it
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
-            <div className="glass-card overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead className="bg-white/5 border-b border-border sticky top-0">
-                            <tr>
-                                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted">Station</th>
-                                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted">Access Code</th>
-                                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted">Location</th>
-                                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted">Status</th>
-                                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted">Agents</th>
-                                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted">Cases</th>
-                                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted">Suspects</th>
-                                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                            {filteredStations.map((station) => (
-                                <tr key={station.station_id} className="hover:bg-white/5 transition-colors group">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-xl bg-amber-400/10 flex items-center justify-center">
-                                                <Building2 className="h-5 w-5 text-amber-400" />
+            {/* Stations Grid - Square Containers */}
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {filteredStations.map((station) => (
+                    <div key={station.station_id} className="glass-card p-6 hover:border-amber-400/50 transition-all group">
+                        {/* Station Header */}
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-12 w-12 rounded-xl bg-amber-400/10 flex items-center justify-center group-hover:bg-amber-400/20 transition-colors">
+                                    <Building2 className="h-6 w-6 text-amber-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-white line-clamp-1">{station.station_name}</h3>
+                                    <p className="text-xs text-muted">{station.station_code}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <span className="text-amber-400">{getStatusIcon(station.status)}</span>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${getStatusColor(station.status)}`}>
+                                    {station.status}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Access Code */}
+                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mb-4">
+                            <div className="flex items-center gap-2">
+                                <div className="h-6 w-6 rounded bg-amber-500/20 flex items-center justify-center">
+                                    <Key className="h-3 w-3 text-amber-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="text-xs font-mono font-bold text-amber-400 tracking-widest break-all">
+                                        {station.access_code || 'N/A'}
+                                    </div>
+                                    <div className="text-xs text-muted">Access Code</div>
+                                </div>
+                                {station.access_code && (
+                                    <button
+                                        onClick={() => copyToClipboard(station.access_code!)}
+                                        className="p-1 bg-amber-500/10 hover:bg-amber-500/20 rounded transition-colors group"
+                                        title="Copy access code"
+                                    >
+                                        {copied && accessCode === station.access_code ? (
+                                            <div className="w-3 h-3 bg-green-400 rounded-sm flex items-center justify-center">
+                                                <div className="w-1 h-1 bg-black rounded-full"></div>
                                             </div>
-                                            <div>
-                                                <div className="text-sm font-medium text-white">{station.station_name}</div>
-                                                <div className="text-xs text-muted">{station.station_code}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-                                                <Key className="h-4 w-4 text-amber-400" />
-                                            </div>
-                                            <div>
-                                                <div className="text-sm font-mono font-bold text-amber-400 tracking-widest">
-                                                    {station.access_code || 'N/A'}
-                                                </div>
-                                                <div className="text-xs text-muted">Login code</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="space-y-1">
-                                            <div className="text-sm text-foreground flex items-center gap-1">
-                                                <MapPin className="h-3 w-3" />
-                                                {station.location}
-                                            </div>
-                                            <div className="text-xs text-muted">{station.sector}</div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-amber-400">{getStatusIcon(station.status)}</span>
-                                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(station.status)}`}>
-                                                {station.status}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2 text-sm text-foreground">
-                                            <Users className="h-4 w-4 text-muted" />
-                                            {station.agent_count}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-muted">{station.case_count}</td>
-                                    <td className="px-6 py-4 text-sm text-muted">{station.suspect_count}</td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <button className="p-2 text-muted hover:text-amber-400 transition-colors hover:bg-amber-400/10 rounded-lg">
-                                                <Eye className="h-4 w-4" />
-                                            </button>
-                                            <button className="p-2 text-muted hover:text-white transition-colors">
-                                                <MoreVertical className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                                        ) : (
+                                            <Copy className="h-3 w-3 text-amber-400 group-hover:text-amber-300" />
+                                        )}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Location */}
+                        <div className="space-y-2 mb-4">
+                            <div className="flex items-center gap-2 text-xs text-muted">
+                                <MapPin className="h-3 w-3" />
+                                <span className="line-clamp-1">{station.location}</span>
+                            </div>
+                            <div className="text-xs text-muted">{station.sector}</div>
+                        </div>
+
+                        {/* Stats Grid */}
+                        <div className="grid grid-cols-3 gap-2 mb-4">
+                            <div className="text-center p-2 bg-white/5 rounded-lg">
+                                <div className="text-sm font-bold text-white">{station.agent_count}</div>
+                                <div className="text-xs text-muted">Agents</div>
+                            </div>
+                            <div className="text-center p-2 bg-white/5 rounded-lg">
+                                <div className="text-sm font-bold text-white">{station.case_count}</div>
+                                <div className="text-xs text-muted">Cases</div>
+                            </div>
+                            <div className="text-center p-2 bg-white/5 rounded-lg">
+                                <div className="text-sm font-bold text-white">{station.suspect_count}</div>
+                                <div className="text-xs text-muted">Suspects</div>
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex justify-end gap-2 pt-3 border-t border-border">
+                            <button className="p-2 text-muted hover:text-amber-400 transition-colors hover:bg-amber-400/10 rounded-lg">
+                                <Eye className="h-4 w-4" />
+                            </button>
+                            <button className="p-2 text-muted hover:text-white transition-colors hover:bg-white/10 rounded-lg">
+                                <MoreVertical className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </div>
+                ))}
             </div>
         </div>
     );

@@ -8,6 +8,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 const { testConnection } = require('./config/database');
 
 // Route Imports
@@ -17,33 +18,85 @@ const caseRoutes = require('./routes/cases');
 const dashboardRoutes = require('./routes/dashboard');
 const authRoutes = require('./routes/auth');
 const nakedLoginRoutes = require('./routes/naked-login');
+console.log('🔓 Naked login routes loaded:', typeof nakedLoginRoutes);
 const stationLoginRoutes = require('./routes/station-login');
 const propertyRoutes = require('./routes/properties');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Serve static files (uploads)
+app.use('/uploads', express.static('uploads'));
+
 // Middleware
 app.use(cors({
-    origin: 'http://localhost:3000',
+    origin: ['http://localhost:3000', 'http://10.175.69.81:3000', 'http://10.0.2.183:3000'],
     credentials: true
 }));
+
+// Add request logging middleware
+app.use((req, res, next) => {
+    console.log(`📡 ${req.method} ${req.url} - ${new Date().toISOString()}`);
+    next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // API Routes
-app.use('/api/auth', authRoutes);
+console.log('🔧 Mounting naked login routes first...');
 app.use('/api/auth', nakedLoginRoutes);
+console.log('🔧 Mounting auth routes...');
+app.use('/api/auth', authRoutes);
 app.use('/api/station-login', stationLoginRoutes);
 app.use('/api/stations', stationRoutes);
 app.use('/api/suspects', suspectRoutes);
 app.use('/api/cases', caseRoutes);
 app.use('/api/properties', propertyRoutes);
-app.use('/api', dashboardRoutes); // This will handle /api/dashboard/*
+app.use('/api/dashboard', dashboardRoutes);
 
 // Test route to verify API is working
 app.get('/api', (req, res) => {
   res.json({ message: 'STATIONS API is running' });
+});
+
+// Test naked login route directly
+app.post('/api/auth/naked-login', async (req, res) => {
+    console.log('🔓 Direct naked login route hit!');
+    const { username } = req.body;
+    
+    try {
+        console.log(`🔓 Naked login attempt: ${username}`);
+        
+        // Create JWT token for any username
+        const token = jwt.sign(
+            {
+                userId: 1,
+                stationId: 1,
+                username: username,
+                role: 'station'
+            },
+            process.env.JWT_SECRET || 'STATIONS_DEFAULT_SECRET',
+            { expiresIn: '24h' }
+        );
+
+        console.log(`🎫 Token issued for: ${username}`);
+
+        res.status(200).json({
+            message: 'Authentication successful',
+            token: token,
+            user: {
+                userId: 1,
+                username: username,
+                role: 'station',
+                stationId: 1
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Naked login error:', error);
+        res.status(500).json({ error: 'Authentication failed' });
+    }
 });
 
 /**

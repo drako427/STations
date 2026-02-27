@@ -32,61 +32,44 @@ export default function DPOActiveStationsPage() {
         const fetchActiveStations = async () => {
             try {
                 setLoading(true);
-                // Mock data for active stations
-                const mockActiveStations: ActiveStation[] = [
-                    {
-                        station_id: 1,
-                        station_name: "Central Police Station",
-                        station_code: "STN-001",
-                        location: "123 Main Street, Downtown",
-                        sector: "Central District",
-                        contact_phone: "+1-555-0101",
-                        contact_email: "central@stations.gov",
-                        agent_count: 45,
-                        case_count: 127,
-                        suspect_count: 89,
-                        last_activity: "2 mins ago",
-                        response_time: "3.2 min",
-                        active_cases: 12,
-                        emergency_response: true
-                    },
-                    {
-                        station_id: 2,
-                        station_name: "North District Station",
-                        station_code: "STN-002",
-                        location: "456 Oak Avenue, North Side",
-                        sector: "North District",
-                        contact_phone: "+1-555-0102",
-                        contact_email: "north@stations.gov",
-                        agent_count: 32,
-                        case_count: 98,
-                        suspect_count: 67,
-                        last_activity: "5 mins ago",
-                        response_time: "4.1 min",
-                        active_cases: 8,
-                        emergency_response: false
-                    },
-                    {
-                        station_id: 4,
-                        station_name: "West Precinct",
-                        station_code: "STN-004",
-                        location: "321 Elm Street, West Side",
-                        sector: "West District",
-                        contact_phone: "+1-555-0104",
-                        contact_email: "west@stations.gov",
-                        agent_count: 38,
-                        case_count: 112,
-                        suspect_count: 78,
-                        last_activity: "12 mins ago",
-                        response_time: "2.8 min",
-                        active_cases: 15,
-                        emergency_response: true
+                const token = localStorage.getItem('token');
+                
+                if (!token) {
+                    throw new Error('No authentication token found');
+                }
+
+                // Fetch real station data from API
+                const response = await fetch('/api/stations', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
                     }
-                ];
-                setStations(mockActiveStations);
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch stations data');
+                }
+
+                const stationsData = await response.json();
+                const activeStationsData = Array.isArray(stationsData) ? stationsData : [];
+
+                // Enhance station data with mock metrics for now
+                const enhancedStations = activeStationsData.map((station: any) => ({
+                    ...station,
+                    agent_count: Math.floor(Math.random() * 50) + 10, // Random agent count 10-60
+                    case_count: Math.floor(Math.random() * 150) + 20, // Random case count 20-170
+                    suspect_count: Math.floor(Math.random() * 100) + 50, // Random suspect count 50-150
+                    last_activity: `${Math.floor(Math.random() * 30) + 1} mins ago`,
+                    response_time: `${(Math.random() * 2 + 1).toFixed(1)} min`,
+                    active_cases: Math.floor(Math.random() * 15) + 5, // Random active cases 5-20
+                    emergency_response: Math.random() > 0.7 // 30% chance of emergency
+                }));
+
+                setStations(enhancedStations);
                 setError(null);
             } catch (err: any) {
-                setError(err.message || 'Failed to load active stations data');
+                console.error('Active Stations Error:', err);
+                setError(err.message || 'Failed to load active stations');
             } finally {
                 setLoading(false);
             }

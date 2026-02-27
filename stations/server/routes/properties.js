@@ -22,15 +22,21 @@ const upload = multer({
 /**
  * GET /api/properties
  * Retrieve all properties for the authenticated user's station
+ * Optional: station_id query parameter for any user to view other stations
  */
 router.get('/', authenticateToken, async (req, res) => {
-    const stationId = req.user.station_id || 1;
+    const { station_id } = req.query;
+    const userStationId = req.user.station_id || 1;
+    
+    // Allow any authenticated user to view any station's properties when station_id is provided
+    // This enables cross-station visibility in the national property page
+    const targetStationId = station_id ? parseInt(station_id) : userStationId;
     
     try {
-        console.log(`🔍 Fetching properties for station_id: ${stationId}, user role: ${req.user.role}`);
+        console.log(`🔍 Fetching properties for station_id: ${targetStationId}, user role: ${req.user.role}, user station: ${userStationId}, requested station_id: ${station_id}`);
         const [rows] = await pool.query(
             'SELECT * FROM properties WHERE station_id = ? ORDER BY created_at DESC',
-            [stationId]
+            [targetStationId]
         );
         res.status(200).json(rows);
     } catch (error) {
@@ -44,6 +50,11 @@ router.get('/', authenticateToken, async (req, res) => {
  * Register a new property for the authenticated user's station
  */
 router.post('/', authenticateToken, upload.single('image'), async (req, res) => {
+    console.log('📝 Property registration request received');
+    console.log('📝 Request body:', req.body);
+    console.log('📝 Request file:', req.file ? 'File present' : 'No file');
+    console.log('📝 User info:', { stationId: req.user?.station_id, userId: req.user?.user_id, role: req.user?.role });
+    
     const {
         item_name,
         description,
@@ -57,6 +68,7 @@ router.post('/', authenticateToken, upload.single('image'), async (req, res) => 
     } = req.body;
 
     if (!item_name) {
+        console.log('❌ Validation failed: item_name is required');
         return res.status(400).json({ error: 'Item name is required' });
     }
 
@@ -69,8 +81,38 @@ router.post('/', authenticateToken, upload.single('image'), async (req, res) => 
         // Handle image upload if present
         let imageUrl = null;
         if (req.file) {
-            // For now, store as base64. In production, you'd upload to cloud storage
-            imageUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+            console.log('📝 Processing image upload:', req.file.originalname, 'Size:', req.file.size);
+            
+            try {
+                // Store image as file path instead of base64 to avoid size limits
+                const fs = require('fs');
+                const path = require('path');
+                
+                // Create uploads directory if it doesn't exist
+                const uploadsDir = path.join(__dirname, '../uploads/properties');
+                if (!fs.existsSync(uploadsDir)) {
+                    console.log('📝 Creating uploads directory:', uploadsDir);
+                    fs.mkdirSync(uploadsDir, { recursive: true });
+                }
+                
+                // Generate unique filename
+                const filename = `property-${Date.now()}-${req.file.originalname}`;
+                const filepath = path.join(uploadsDir, filename);
+                
+                console.log('📝 Saving image to:', filepath);
+                
+                // Write file to disk
+                fs.writeFileSync(filepath, req.file.buffer);
+                
+                // Store relative path in database
+                imageUrl = `/uploads/properties/${filename}`;
+                console.log('✅ Image saved successfully:', imageUrl);
+                
+            } catch (fileError) {
+                console.error('❌ Error saving image file:', fileError);
+                // Fallback to null (no image) instead of base64
+                imageUrl = null;
+            }
         }
 
         const [result] = await pool.query(
@@ -93,6 +135,8 @@ router.post('/', authenticateToken, upload.single('image'), async (req, res) => 
                 imageUrl
             ]
         );
+        
+        console.log('✅ Property inserted with imageUrl:', imageUrl, '(length:', imageUrl ? imageUrl.length : 0, ')');
 
         res.status(201).json({
             message: 'Property registered successfully',
@@ -139,14 +183,14 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
 /**
  * DELETE /api/properties/:id
- * Delete a property (admin only)
+ * Delete a property (admin, dpo, and officers)
  */
 router.delete('/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const stationId = req.user.station_id || 1;
     
-    // Only allow admins to delete properties
-    if (!['admin', 'dpo'].includes(req.user.role)) {
+    // Allow admin, dpo, and officers to delete properties from their own station
+    if (!['admin', 'dpo', 'officer'].includes(req.user.role)) {
         return res.status(403).json({ error: 'Insufficient permissions' });
     }
     

@@ -14,6 +14,7 @@ const Charts = dynamic(() => import("@/components/dashboard/Charts"), { ssr: fal
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [data, setData] = useState<{
     station: any,
     stats: any[],
@@ -27,22 +28,31 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
+    console.log('🚀 Dashboard component mounting...');
+    
     const fetchDashboardData = async () => {
       // Only run on client side
       if (typeof window === 'undefined') return;
+      
+      console.log('🔍 Starting dashboard data fetch...');
       
       try {
         setLoading(true);
         
         const token = localStorage.getItem('token');
+        const user = localStorage.getItem('user');
+        
+        console.log('🔍 Dashboard - Token:', token ? 'EXISTS' : 'MISSING');
+        console.log('🔍 Dashboard - User:', user ? 'EXISTS' : 'MISSING');
+        
         if (!token) {
-          console.error('No token found, redirecting to login...');
+          console.error('❌ No token found, redirecting to login...');
           window.location.href = '/login';
           return;
         }
         
         console.log('Fetching dashboard data...');
-        const response = await fetch('http://localhost:5000/api/dashboard', {
+        const response = await fetch('/api/dashboard', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -66,7 +76,10 @@ export default function Dashboard() {
           if (response.status === 401 || responseData?.error?.includes('token')) {
             console.error('Token expired or invalid, clearing and redirecting...');
             localStorage.removeItem('token');
-            window.location.href = '/login';
+            localStorage.removeItem('user');
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 1000);
             return;
           }
           
@@ -79,13 +92,22 @@ export default function Dashboard() {
       } catch (err: any) {
         console.error('Dashboard fetch error:', err);
         setError(err.message || 'Failed to load dashboard data');
+        
+        // Retry up to 3 times for network/resource errors
+        if (retryCount < 3 && (err.message?.includes('Failed to fetch') || err.message?.includes('Network'))) {
+          console.log(`Retrying dashboard fetch... Attempt ${retryCount + 1}/3`);
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1);
+          }, 2000 * (retryCount + 1)); // Exponential backoff
+          return;
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchDashboardData();
-  }, []);
+  }, [retryCount]);
 
   if (loading) {
     return (
@@ -102,12 +124,22 @@ export default function Dashboard() {
         <AlertCircle className="h-12 w-12" />
         <p className="text-lg font-bold uppercase tracking-widest">Digital Link Failure</p>
         <p className="text-sm text-muted max-w-md text-center">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="mt-4 px-6 py-2 bg-rose-500/10 border border-rose-500/20 rounded-lg text-xs font-bold hover:bg-rose-500/20 transition-all"
-        >
-          RETRY UPLINK
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-6 py-2 bg-rose-500/10 border border-rose-500/20 rounded-lg text-xs font-bold hover:bg-rose-500/20 transition-all"
+          >
+            RETRY UPLINK
+          </button>
+          {retryCount < 3 && (
+            <button
+              onClick={() => setRetryCount(prev => prev + 1)}
+              className="mt-4 px-6 py-2 bg-primary/10 border border-primary/20 rounded-lg text-xs font-bold hover:bg-primary/20 transition-all"
+            >
+              RETRY ({3 - retryCount} LEFT)
+            </button>
+          )}
+        </div>
       </div>
     );
   }

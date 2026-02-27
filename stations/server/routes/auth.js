@@ -11,7 +11,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'STATIONS_DEFAULT_SECRET';
  * Register a new station user
  */
 router.post('/register', async (req, res) => {
-    const { station_id, username, email, password, full_name, badge_number, rank, role } = req.body;
+    const { station_id, username, email, password, full_name, badge_number, user_rank, role } = req.body;
 
     if (!username || !email || !password || !station_id) {
         return res.status(400).json({ error: 'Username, email, password, and station_id are required.' });
@@ -21,9 +21,9 @@ router.post('/register', async (req, res) => {
         const password_hash = await bcrypt.hash(password, 10);
 
         const [result] = await pool.query(
-            `INSERT INTO users (station_id, username, email, password_hash, full_name, badge_number, rank, role) 
+            `INSERT INTO users (station_id, username, email, password_hash, full_name, badge_number, user_rank, role) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [station_id, username, email, password_hash, full_name, badge_number, rank, role || 'officer']
+            [station_id, username, email, password_hash, full_name, badge_number, user_rank, role || 'officer']
         );
 
         res.status(201).json({

@@ -3,13 +3,29 @@
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Shield, Bell, Search, User } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const isLoginPage = pathname === "/login";
+    const { logout, getUser, isAuthenticated } = useAuth();
 
     if (isLoginPage) {
         return <>{children}</>;
+    }
+
+    // Show loading state while checking authentication
+    if (!isAuthenticated) {
+        return (
+            <div className="flex h-screen items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
+
+    const user = getUser();
+    if (!user) {
+        return null; // Will redirect to login via useAuth hook
     }
 
     return (
@@ -36,8 +52,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                                 <User className="h-5 w-5 text-primary" />
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-sm font-medium text-white">Agent Smith</span>
-                                <span className="text-xs text-muted leading-tight">Senior Investigator</span>
+                                <span className="text-sm font-medium text-white">{user.username || 'Agent'}</span>
+                                <span className="text-xs text-muted leading-tight">{user.role || 'Officer'}</span>
                             </div>
                         </div>
                     </div>

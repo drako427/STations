@@ -18,11 +18,14 @@ export default function LoginPage() {
         setError('');
 
         console.log('🔓 Login attempt:', selectedRole === 'station' ? credentials.code : credentials.username, 'Role:', selectedRole);
-
+        
         try {
             if (selectedRole === 'station') {
-                // Use real station login API
-                const response = await fetch('http://localhost:5000/api/station-login', {
+                console.log('📝 Access code entered:', credentials.code);
+                console.log('📝 Access code uppercase:', credentials.code.toUpperCase());
+                
+                // Use real station login API via Next.js proxy
+                const response = await fetch('/api/station-login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -30,21 +33,27 @@ export default function LoginPage() {
                     body: JSON.stringify({ access_code: credentials.code.toUpperCase() })
                 });
 
+                console.log('📡 Response status:', response.status);
                 const data = await response.json();
+                console.log('📡 Response data:', data);
 
                 if (!response.ok) {
                     throw new Error(data.error || 'Invalid station code');
                 }
 
-                // Store token and user info
+                // Store token and station info
                 localStorage.setItem('token', data.token);
-                localStorage.setItem('user', JSON.stringify(data.user));
+                localStorage.setItem('user', JSON.stringify({
+                    ...data.user,
+                    role: data.user.role,
+                    username: data.user.username
+                }));
                 console.log('✅ Station login successful, redirecting to dashboard');
                 router.push('/');
 
             } else {
                 // DPO still uses naked login for now
-                const response = await fetch('http://localhost:5000/api/auth/naked-login', {
+                const response = await fetch('/api/auth/naked-login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

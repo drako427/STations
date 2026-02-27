@@ -28,22 +28,38 @@ router.post('/', async (req, res) => {
 
         const station = stationRows[0];
 
-        // Find the associated user
-        const [userRows] = await pool.query(
+        // Find or create the associated user (station users have officer role)
+        let [userRows] = await pool.query(
             'SELECT * FROM users WHERE station_id = ? AND role = ?',
-            [station.station_id, 'station']
+            [station.station_id, 'officer']
         );
 
+        let user;
         if (userRows.length === 0) {
-            return res.status(401).json({ error: 'Station user not found' });
-        }
-
-        const user = userRows[0];
-
-        // Verify password (access code)
-        const isValidPassword = await bcrypt.compare(access_code, user.password_hash);
-        if (!isValidPassword) {
-            return res.status(401).json({ error: 'Invalid station code' });
+            // Create a station user if none exists
+            console.log(`Creating station user for station ${station.station_id}`);
+            const username = `station_${station.station_id}`;
+            const hashedPassword = await bcrypt.hash(access_code, 10);
+            
+            const [result] = await pool.query(
+                'INSERT INTO users (station_id, username, email, password_hash, full_name, badge_number, user_rank, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [station.station_id, username, `${username}@stations.temp`, hashedPassword, station.station_name, `STN-${station.station_id}`, 'Station Officer', 'officer']
+            );
+            
+            // Get the newly created user
+            const [newUserRows] = await pool.query(
+                'SELECT * FROM users WHERE user_id = ?',
+                [result.insertId]
+            );
+            user = newUserRows[0];
+        } else {
+            user = userRows[0];
+            // Update password to match current access code for existing users
+            const hashedPassword = await bcrypt.hash(access_code, 10);
+            await pool.query(
+                'UPDATE users SET password_hash = ? WHERE user_id = ?',
+                [hashedPassword, user.user_id]
+            );
         }
 
         // Generate JWT token with station_id
@@ -54,7 +70,7 @@ router.post('/', async (req, res) => {
                 role: user.role,
                 station_id: station.station_id
             },
-            process.env.JWT_SECRET || 'your-secret-key',
+            process.env.JWT_SECRET || 'STATIONS_DEFAULT_SECRET',
             { expiresIn: '24h' }
         );
 
