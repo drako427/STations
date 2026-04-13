@@ -1,0 +1,28 @@
+{
+    "name": "stations-backend",
+    "version": "1.0.0",
+    "description": "Backend API for STATIONS police operations system",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js",
+        "dev": "node --watch index.js",
+        "test": "node config/database.js"
+    },
+    "keywords": [
+        "police",
+        "api",
+        "mysql"
+    ],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "bcryptjs": "^3.0.3",
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.7",
+        "express": "^5.2.1",
+        "jsonwebtoken": "^9.0.3",
+        "multer": "^1.4.5-lts.1",
+        "mysql2": "^3.11.5",
+        "node-fetch": "^3.3.2"
+    }
+}
